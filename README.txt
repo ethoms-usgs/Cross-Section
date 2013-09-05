@@ -9,4 +9,11 @@ A toolbox of python-based geoprocessing tools for performing a variety of tasks 
 -convert borehole location points and an optional table of borehole interval descriptions to sticklogs
 -convert structural measurement points to cross-section points attributed with the apparent dip
 
-Download the zip file, extract to a suitable location, and add to ArcMap through the ArcToolbox window.
+To install:
+-open up https://github.com/evanthoms/Cross-Section
+-go to the lower right and click on Download Zip
+-this will download the file Cross-Section-master.zip.
+-extract the contents of that zip file to a suitable folder
+-that will extract a folder called GeologicCrossSectionTbx, a file called .gitattributes, .gitignore, and README.txt. You can delete the latter three files. They have nothing to do with the ArcGIS toolbox. They are only for the case where you want to collaborate on github.
+-Go into GeologicCrossSectionTbx, that is where you will see the .tbx file, a folder called docs and a folder called scripts. You need to keep all three of these things together within the same folder. You can move them where ever you like, but they have to stay together. 
+-Now, in ArcToolbox, whether opened from ArcMap or ArcCatalog, you can right-click over some empty white space to get the context menu, and choose 'Add Toolbox'. Browse to Cross Section Tools 10.1.tbx and that should do it.

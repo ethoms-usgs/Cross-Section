@@ -184,7 +184,7 @@ def CalcApDips(Zpts, line, strike, dip, ve):
                     b = n_ang + 90
 
                 if 90 < n_ang <= 180:
-                    n_ang = 360 - (a - 90)
+                    n_ang = 360 - (n_ang - 90)
                     b = (n_ang + 90) - 360
 
                 if -180 <= n_ang < 0:

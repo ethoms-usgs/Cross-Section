@@ -12,6 +12,7 @@ updates to ArcGIS 10 beginning 3/18/11
 
 updates to ArcGIS 10.1 beginning 6/5/13
 primarily, removing unnecessary parameters, removing references to xsecdefs
+
 '''
 
 import sys
@@ -198,6 +199,8 @@ try:
             if result > 1:
                 arcpy.AddError("'Single line layer' has more than one line in it or more than one line selected.")
                 raise SystemError
+            #now select only those profile lines that intersect the the WRT line
+            arcpy.SelectLayerByLocation_management(linesLayer, "INTERSECT", wrtLineFC)
         else:
             arcpy.AddError("'Single line layer' parameter is empty.")
             raise SystemError
@@ -265,29 +268,34 @@ try:
                 #and create a search cursor of hopefully just one row where the rkeys
                 #in the profiles fc and the intersect table are the same
                 where = '"rkey" = ' + str(rte)
-                rows = arcpy.SearchCursor(intersectTab, where)
-                #get the offset distance
-                offset = rows.next().mValue
-
-                #create an empty container for the re-calced profile geometry
-                newProf = arcpy.CreateObject('array')
-
-                #get the existing geometry
-                feat = profile.shape
-                part = feat.getPart(0)
-
-                for pnt in part:
-                    #recalc each x coordinate and add it to the new array object
-                    pnt.X = pnt.X - offset
-                    newProf.add(pnt)
-
-                    #compare Y values for the min and max of the dataset
-                    if pnt.Y > maxY: maxY = pnt.Y
-                    if pnt.Y < minY: minY = pnt.Y
-
-                #set the old profile shape to the new and update
-                profile.shape = newProf
-                profiles.updateRow(profile)
+                #rows = arcpy.SearchCursor(intersectTab, where)
+                with arcpy.da.SearchCursor(intersectTab, "mValue", where) as rows:
+                    try:
+                        #get the offset distance
+                        #offset = rows.next().mValue
+                        offset = rows.next()[0]
+        
+                        #create an empty container for the re-calced profile geometry
+                        newProf = arcpy.CreateObject('array')
+        
+                        #get the existing geometry
+                        feat = profile.shape
+                        part = feat.getPart(0)
+        
+                        for pnt in part:
+                            #recalc each x coordinate and add it to the new array object
+                            pnt.X = pnt.X - offset
+                            newProf.add(pnt)
+        
+                            #compare Y values for the min and max of the dataset
+                            if pnt.Y > maxY: maxY = pnt.Y
+                            if pnt.Y < minY: minY = pnt.Y
+        
+                        #set the old profile shape to the new and update
+                        profile.shape = newProf
+                        profiles.updateRow(profile)
+                    except:
+                        pass 
 
 
         #now insert one last vertical line to show the location of intersection
@@ -315,6 +323,7 @@ try:
     #some cleanup
     arcpy.DeleteField_management(zmProfiles, 'ORIG_FID')
     arcpy.DeleteField_management(linesLayer, 'ORIG_FID')
+    arcpy.SelectLayerByAttribute_management(linesLayer, "CLEAR_SELECTION")
 
     #now, to worry about the output
     #check to see if we are to append the features to an existing fc

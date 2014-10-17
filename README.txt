@@ -1,4 +1,4 @@
-Cross Section toolbox for ArcGIS 10.1
+Cross Section toolbox for ArcGIS 10.2
 
 Evan Thoms, USGS
 
@@ -16,4 +16,7 @@ To install:
 -extract the contents of that zip file to a suitable folder
 -that will extract a folder called GeologicCrossSectionTbx, a file called .gitattributes, .gitignore, and README.txt. You can delete the latter three files. They have nothing to do with the ArcGIS toolbox. They are only for the case where you want to collaborate on github.
 -Go into GeologicCrossSectionTbx, that is where you will see the .tbx file, a folder called docs and a folder called scripts. You need to keep all three of these things together within the same folder. You can move them where ever you like, but they have to stay together. 
--Now, in ArcToolbox, whether opened from ArcMap or ArcCatalog, you can right-click over some empty white space to get the context menu, and choose 'Add Toolbox'. Browse to Cross Section Tools 10.1.tbx and that should do it.
+-Now, in ArcToolbox, whether opened from ArcMap or ArcCatalog, you can right-click over some empty white space to get the context menu, and choose 'Add Toolbox'. Browse to Cross Section Tools 10.2.tbx and select it.
+
+Demo data:
+An ArcGIS 10.2 file geodatabase and mxd are included in \GeologicCrossSectionTbx\demo. All of the different types of data sources necessary to run any of the tools in the toolbox are there. A tutorial will follow.

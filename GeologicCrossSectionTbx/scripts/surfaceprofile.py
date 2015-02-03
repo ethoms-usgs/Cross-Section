@@ -1,7 +1,7 @@
 '''
 Name: surfaceprofile.py
 Description: ArcToolbox tool script to create one or more surface profiles from an ArcMap line layer
-    in a cross-sectional view shapefile. Requires a line layer and a DEM in the same
+    in a  cross sectional view shapefile. Requires a line layer and a DEM in the same
     coordinate system.
 Requirements: 3D Analyst extension, CreateRoutes extension is available with all Arc modules
 Author: Evan Thoms, U.S. Geological Survey, ethoms@usgs.gov
@@ -91,7 +91,7 @@ def transferAtts(inFC, joinTable, parentKey, childKey, fInfo, outName):
 def plan2side(ZMlines, ve):
     #flip map view lines to cross section view without creating a copy
     #this function updates the existing geometry
-    arcpy.AddMessage('Flipping ' + ZMlines + ' from map view to cross-section view')
+    arcpy.AddMessage('Flipping ' + ZMlines + ' from map view to  cross section view')
     try:
         rows = arcpy.UpdateCursor(ZMlines)
         n = 0
@@ -136,7 +136,7 @@ def plan2side(ZMlines, ve):
 # ***************************************************************
 arcpy.env.overwriteOutput = True
 
-# Cross-section(s) layer
+#  cross section(s) layer
 linesLayer = arcpy.GetParameterAsText(0)
 
 # elevation raster layer
@@ -167,9 +167,9 @@ appendFC = arcpy.GetParameterAsText(8)
 #data frame name
 dfName = arcpy.GetParameterAsText(9)
 
-    # BEGIN
-    # ***************************************************************
-    #do we have a place to put this?
+# BEGIN
+# ***************************************************************
+#do we have a place to put this?
 try:
     if outFC == "" and appendFC == "":
         arcpy.AddError("Provide the name of a new feature class or one to which the features will be appended.")
@@ -178,13 +178,14 @@ try:
     #check the availability of the 3d Analyst extension
     checkExtensions()
  
-##Bug at 10.1 makes it impossible to check for a schema lock
-##http://support.esri.com/fr/knowledgebase/techarticles/detail/40911
-##During testing of this section, all calls to arcpy.TestSchemaLock resulted in False
-##    #try to get a schema lock
+#Bug at 10.1 makes it impossible to check for a schema lock
+#http://support.esri.com/fr/knowledgebase/techarticles/detail/40911
+#During testing of this section, all calls to arcpy.TestSchemaLock resulted in False
+#    #try to get a schema lock
 ##    if not arcpy.TestSchemaLock(linesLayer):
 ##        arcpy.AddMessage("Cannot acquire a schema lock on " + linesLayer)
 ##        raise SystemError
+#still at 10.2, apparently
 
     #if wrtLineFC was provided, check for only one line
     if plotWRT == 'true':
@@ -214,16 +215,16 @@ try:
     desc = arcpy.Describe(linesLayer)
     idField = desc.OIDFieldName
     addAndCalc(linesLayer, 'ORIG_FID', '[' + idField + ']')
-
+    
     #interpolate the lines
     zLines = outName + '_z'
-    arcpy.AddMessage('Getting elevation values for features in ' + zLines)
+    arcpy.AddMessage('Getting elevation values for features in ' + linesLayer)
     arcpy.InterpolateShape_3d(dem, linesLayer, zLines)
     arcpy.AddMessage('    ' + zLines + ' written to ' + arcpy.env.scratchWorkspace)
     
     #measure the lines
     zmLines = outName + '_zm'
-    arcpy.AddMessage('Measuring the length of the line(s) in ' + zmLines)
+    arcpy.AddMessage('Measuring the length of the line(s) in ' + zLines)
     arcpy.CreateRoutes_lr(zLines, 'ORIG_FID', zmLines, 'LENGTH', '#', '#', cp)
     arcpy.AddMessage('    ' + zmLines + ' written to ' + arcpy.env.scratchWorkspace)
     
@@ -324,6 +325,7 @@ try:
     arcpy.DeleteField_management(zmProfiles, 'ORIG_FID')
     arcpy.DeleteField_management(linesLayer, 'ORIG_FID')
     arcpy.SelectLayerByAttribute_management(linesLayer, "CLEAR_SELECTION")
+    arcpy.Delete_management("lay")
 
     #now, to worry about the output
     #check to see if we are to append the features to an existing fc

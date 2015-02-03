@@ -316,17 +316,28 @@ try:
     #Maybe something to do with the spatial index?
     arcpy.AddMessage('Calculating shapes and attributes from ' + eventPts)
     
-    rows = arcpy.da.UpdateCursor(eventPts, ["OBJECTID", "SHAPE@M", zField, "SHAPE@XY", "LOC_ANGLE", "LocalCSAzimuth", 
-                                 "DistanceFromSection", "Distance", strikeField, dipField,"Obliquity", 
-                                 "ApparentInclination", "PlotAzimuth"])
+    #in the case where isOrientationData is false, we can't call orientation related
+    #fields or the cursor blows up
+    if isOrientationData:
+        arcpy.AddMessage("is Orientation Data") 
+        fldList = ["OBJECTID", "SHAPE@M", zField, "SHAPE@XY", "LOC_ANGLE", "LocalCSAzimuth", 
+                                     "DistanceFromSection", "Distance", strikeField, dipField,"Obliquity", 
+                                     "ApparentInclination", "PlotAzimuth"]
+    else:
+        arcpy.AddMessage("is not Orientation Data")
+        fldList = ["OBJECTID", "SHAPE@M", zField, "SHAPE@XY", "LOC_ANGLE", "LocalCSAzimuth", 
+                                     "DistanceFromSection", "Distance"]
+                               
+    rows = arcpy.da.UpdateCursor(eventPts, fldList)
     for row in rows:
+        arcpy.AddMessage('OBJECTID ' + str(row[0])) 
         #swap M,Z for X,Y
         try:
             #M for X
             x = row[1]
             if row[2] == None:
                 y = -999
-                arcpy.AddMessage('    OBJECTID = '+ str(row[0]) +' has no elevation value')
+                arcpy.AddMessage('    OBJECTID '+ str(row[0]) +' has no elevation value')
                 arcpy.AddMessage('        calculating a value of -999')
             else:
                 y = row[2] * float(ve)

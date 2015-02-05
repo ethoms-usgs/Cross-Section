@@ -242,10 +242,11 @@ try:
     #figure out where the point elevation is coming from: a user specified field or to be
     #calculated by interpolation from the DEM and stored in 'zDEM'
     if not ptZField =='':
+        arcpy.AddMessage('Using elevations stored in the field ' + ptZField)
         #if the elevation values are in the table, copy the selection to an
         #output fc
     	zField = ptZField
-    	zPts = arcpy.CopyFeatures_management(ptLayer, zPts)
+    	arcpy.CopyFeatures_management(ptLayer, zPts)
     else:
     	#otherwise, interpolate Z values for the points
     	arcpy.InterpolateShape_3d(dem, ptLayer, zPts)

@@ -284,7 +284,10 @@ try:
     #an unresolved bug in the Locate Features Along Routes tool
     #some points will get more than one record in the event table
     #and slightly different, sub-mapunit, mValues
-    arcpy.DeleteIdentical_management(eventTable, 'ORIG_PTID')
+    try:
+        arcpy.DeleteIdentical_management(eventTable, 'ORIG_PTID')
+    except:
+        pass
 
     #place points as events on the cross section line
     eventLyr = '_lyr'

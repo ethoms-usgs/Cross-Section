@@ -210,6 +210,11 @@ try:
     #check for 3DAnalyst extension
     checkExtensions()
     
+    #check for an output
+    if outName == ""  and appendFC == "":
+        arcpy.AddMessage("Select a new feature class or one to which new features will be appended")
+        raise SystemError
+    
     #environment variables
     arcpy.env.overwriteOutput = True
     scratchDir = arcpy.env.scratchWorkspace

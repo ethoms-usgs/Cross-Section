@@ -19,4 +19,4 @@ To install:
 -Now, in ArcToolbox, whether opened from ArcMap or ArcCatalog, you can right-click over some empty white space to get the context menu, and choose 'Add Toolbox'. Browse to Cross Section Tools 10.2.tbx and select it.
 
 Demo data:
-An ArcGIS 10.2 file geodatabase and mxd are included in \GeologicCrossSectionTbx\demo. All of the different types of data sources necessary to run any of the tools in the toolbox are there. A tutorial will follow.
+An ArcGIS 10.2 file geodatabase and mxd are included in \GeologicCrossSectionTbx\demo. All of the different types of data sources necessary to run any of the tools in the toolbox are there. When you first open the MXD, go to File > Map Document Properties, and re-write the path to the Default.gdb. The path to my Default.gdb gets written to the MXD and I am not sure that can be reset at runtime of the python tools. A tutorial will follow.

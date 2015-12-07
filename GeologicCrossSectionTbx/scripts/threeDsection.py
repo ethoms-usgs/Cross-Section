@@ -198,7 +198,7 @@ def returnParentFolder(path):
 def XYZfile2features(xyzFile, threeDFC, shpType):
     #arcpy.AddMessage(xyzFile + ', ' + 'GENERATE' + ', ' + threeDFC + ', ' + shpType)
     try:
-        arcpy.ASCII3DToFeatureClass_3d(xyzFile, 'GENERATE', threeDFC, 'POLYGON') #, '#', '#', '#', '#', 'DECIMAL_POINT')
+        arcpy.ASCII3DToFeatureClass_3d(xyzFile, 'GENERATE', threeDFC, shpType) #, '#', '#', '#', '#', 'DECIMAL_POINT')
 
     except:
         # get the traceback object
@@ -329,6 +329,7 @@ try:
         
         #find out what kind of features we're dealing with
         shpType = arcpy.Describe(layer).ShapeType
+        #arcpy.AddMessage('{} is a {} feature class'.format(layer, shpType))
         
         #special case of point feature type (fewer nested loops for the parts > vertices)
         #and we can edit the geometry directly
@@ -383,7 +384,7 @@ try:
                 #write the object id to the file
                 idl.append(row[0])
                 outF.write(str(row[0]) + '\n')
-                arcpy.AddMessage("OBJECTID {}".format(row[0]))
+                #arcpy.AddMessage("OBJECTID {}".format(row[0]))
 				
                 #get the shape of each feature
                 feat = row[1]

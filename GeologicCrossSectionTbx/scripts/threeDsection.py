@@ -112,12 +112,14 @@ def vertexDictionary(ZMline):
         vtxList = wkt.split(", ")
         for vtx in vtxList:
             valList = vtx.split(" ")
-            x = valList[0]
-            y = valList[1]
-            m = valList[3]
+            x = float(valList[0])
+            y = float(valList[1])
+            m = float(valList[3])
             vDict[m] = (x, y)
             vList.append(m)
-
+			
+        #for k in vDict.keys():
+        #    arcpy.AddMessage("{}, {}".format(k, vDict[k]))
         #sort the list numerically so we know we are evaluating m values
         #from min to max
         vList.sort()
@@ -136,12 +138,14 @@ def lerpXY(distance, vList, vDict):
     #Use the very handy bisect module to find where the distance (as reported
     #by the X coordinate in cross section view) would be inserted in the
     #sorted M values list.
-
+    #arcpy.AddMessage("{}, {}".format(distance, min(vList)))
     try:
         #if our distance value is smaller than the M value at the beginning
         #of the line, use the smallest M value as the key for the dictionary
         #and use the XY of that entry, no interpolation
         if distance <= min(vList):
+            #arcpy.AddMessage("{}, {}".format(distance, min(vList)))
+            #arcpy.AddMessage(1)
             key = min(vList)
             newX = vDict[key][0]
             newY = vDict[key][1]
@@ -150,6 +154,7 @@ def lerpXY(distance, vList, vDict):
         #use the largest M value of the key for the dictionary and use the XY
         #of that entry, no interpolation
         elif distance >= max(vList):
+            #arcpy.AddMessage(2)
             key = max(vList)
             newX = vDict[key][0]
             newY = vDict[key][1]
@@ -159,6 +164,7 @@ def lerpXY(distance, vList, vDict):
         else:
             #bisect returns the index
             #arcpy.AddMessage('trying')
+            #arcpy.AddMessage(3)
             insertN = bisect.bisect_right(vList, distance)
 
             floor = vList[insertN - 1]
@@ -182,17 +188,17 @@ def lerpXY(distance, vList, vDict):
     return newX, newY
 
 def returnParentFolder(path):
-     desc = arcpy.describe(path)
+     desc = arcpy.Describe(path)
      while not desc.datatype == 'Folder':
          path = os.path.dirname(path)
-         desc = arcpy.describe(path)
+         desc = arcpy.Describe(path)
 
      return path
 
 def XYZfile2features(xyzFile, threeDFC, shpType):
     #arcpy.AddMessage(xyzFile + ', ' + 'GENERATE' + ', ' + threeDFC + ', ' + shpType)
     try:
-        arcpy.ascii3dtofeatureclass_3d(xyzFile, 'GENERATE', threeDFC, 'POLYGON') #, '#', '#', '#', '#', 'DECIMAL_POINT')
+        arcpy.ASCII3DToFeatureClass_3d(xyzFile, 'GENERATE', threeDFC, 'POLYGON') #, '#', '#', '#', '#', 'DECIMAL_POINT')
 
     except:
         # get the traceback object
@@ -231,14 +237,11 @@ def transferAtts(inFC, joinTable, parentKey, childKey, fInfo, outName):
 # *******************************************************
 # Cross section layer, use this as a reference to the feature layer
 xsecLayer = arcpy.GetParameterAsText(0)
+xsecLayer = arcpy.Describe(xsecLayer).featureClass.name
 
 #use this as the basename for intermediate files (because lineLayer may 
 #have slashes in the name/path)
-xsecName = arcpy.Describe(xsecLayer).name 
-
-#might be a path, so we have to get the name of the file
-if os.path.isabs(xsecLayer):
-    xsecLayer = os.path.splitext(os.path.basename(xsecLayer))[0]
+xsecName = arcpy.Describe(xsecLayer).featureClass.name 
 
 #can't figure out how to put this in the validator class ??
 result = arcpy.GetCount_management(xsecLayer)
@@ -360,32 +363,31 @@ try:
                 rows.updateRow(row)
                 
         else: #we're dealing with lines or polygons which are not so easy to edit
-            #the geometries of
-            idl = []
-            
-            #open a search cursor
-            rows = arcpy.SearchCursor(layCopy)
-            row = rows.next()
-            
             #get the parent folder of the scratch directory, might be a folder
             #itself.
-            scratchFolder = returnParentFolder(gp, scratchDir)
+            scratchFolder = returnParentFolder(scratchDir)
             
             #open a text file to start writing coordinates to
             xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
             arcpy.AddMessage('Writing XYZ coordinates to %s' % xyzFile)
-            
             outF = open(xyzFile, 'w')
+			
+			#ID list
+            idl = []
+            
+            #open a search cursor
+            rows = arcpy.da.SearchCursor(layCopy, ["OID@", "SHAPE@"])
             
             #start looping through the features
-            while row:
-                #get the shape of each feature
-                feat = row.Shape
-                
+            for row in rows:
                 #write the object id to the file
-                idl.append(row.objectid)
-                outF.write(str(row.objectid) + '\n')
-                
+                idl.append(row[0])
+                outF.write(str(row[0]) + '\n')
+                arcpy.AddMessage("OBJECTID {}".format(row[0]))
+				
+                #get the shape of each feature
+                feat = row[1]
+                              
                 #this might be a multipart feature
                 #if there is only one part, the next loop is only visited once
                 partnum = 0
@@ -401,14 +403,14 @@ try:
     
                     while pnt:
                         #get the XY of this point from the vertex dictionary based on the M value
-                        xDistance = pnt.x
-                        newXY = lerpXY(gp, xDistance, vList, vDict)
+                        xDistance = pnt.X
+                        newXY = lerpXY(xDistance, vList, vDict)
                         
                         #if we can get valid coordinates from lerpXY
                         if not newXY[0] == 9999:
-                            outF.write(str(newXY[0]) + ' ' + str(newXY[1]) + ' ' + str(pnt.y / float(ve)) + '\n')
+                            outF.write(str(newXY[0]) + ' ' + str(newXY[1]) + ' ' + str(pnt.Y / float(ve)) + '\n')
                         else:
-                            arcpy.AddMessage('9999 exception with ' + str(row.OBJECTID) + ' : ' + str(pnt.x))
+                            arcpy.AddMessage('9999 exception with ' + str(row[0]) + ' : ' + str(pnt.X))
                             
                         #otherwise just go on to the next point
                         pnt = part.next()
@@ -418,33 +420,33 @@ try:
                 
                 #update the row's shape
                 outF.write('END\n')
-                row = rows.next()
-                
-                outF.write('END')
-                outF.close
+
+            outF.write('END')
+            outF.close
     
-                #the del statement below is somehow critical to finishing the writing of the
-                #file. During development, until I added that, all but the last two polygons 
-                #would get created when I ran the text file through the ascii 3d tool.
-                del outF
+            #the del statement below is somehow critical to finishing the writing of the
+            #file. During development, until I added that, all but the last two polygons 
+            #would get created when I ran the text file through the ascii 3d tool.
+            del outF
                 
-                #run the text file through ASCII 3D to Feature tool
-                threeDFC = baseName + '_noAtts'
-                arcpy.AddMessage('Using %s in ASCII 3D to Features Tool' % xyzFile)
-                XYZfile2features(gp, xyzFile, threeDFC, shpType)
+            #run the text file through ASCII 3D to Feature tool
+            threeDFC = baseName + '_noAtts'
+            arcpy.AddMessage('Using %s in ASCII 3D to Features Tool' % xyzFile)
+            XYZfile2features(xyzFile, threeDFC, shpType)
             
-                #join the attributes to the output file
-                outName = baseName + '_3D'
-                fInfo = 'ID ID HIDDEN;OBJECTID OBJECTID HIDDEN;OBJECTID_12 OBJECTID_12 HIDDEN;OBJECTID_1 OBJECTID_1 HIDDEN'
-                transferAtts(gp, threeDFC, layCopy, 'ID', 'OBJECTID', fInfo, outName)
+            #join the attributes to the output file
+            outName = baseName + '_3D'
+            fInfo = 'ID ID HIDDEN;OBJECTID OBJECTID HIDDEN;OBJECTID_12 OBJECTID_12 HIDDEN;OBJECTID_1 OBJECTID_1 HIDDEN'
+            transferAtts(threeDFC, layCopy, 'ID', 'OBJECTID', fInfo, outName)
                 
-                #copy the final fc from the scratch gdb to the output directory/gdb
-                arcpy.AddMessage('Copying %s to %s' % (outName, outDir))
-                srcFC = os.path.join(scratchDir, outName)
-                arcpy.workspace = outDir
-                arcpy.CopyFeatures(srcFC, outName)
-                
-                raise SystemError
+            #copy the final fc from the scratch gdb to the output directory/gdb
+            arcpy.AddMessage('Copying %s to %s' % (outName, outDir))
+            srcFC = os.path.join(scratchDir, outName)
+            arcpy.workspace = outDir
+            outPath = os.path.join(outDir, outName)			
+            arcpy.CopyFeatures_management(srcFC, outPath)
+
+        #raise SystemError   
 except:
     tb = sys.exc_info()[2]
     tbinfo = traceback.format_tb(tb)[0]

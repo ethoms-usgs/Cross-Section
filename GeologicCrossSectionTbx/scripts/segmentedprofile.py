@@ -160,10 +160,10 @@ def plan2side(zmLines, ve):
 # *******************************************************
 # Cross section(s) layer
 lineLayer = arcpy.GetParameterAsText(0)
-
-#might be a path, so we have to get the name of the file
-if os.path.isabs(lineLayer):
-    lineLayer = os.path.splitext(os.path.basename(lineLayer))[0]
+# if the layer is nested in an group the value returned has a slash in it:
+# GEOLOGY/cross sections
+# but if we evaluate it as a Describe object, we can easily get the name of just the feature class
+lineLayer = arcpy.Describe(lineLayer).featureClass.name
 
 #can't figure out how to put this in the validator class ??
 result = arcpy.GetCount_management(lineLayer)
@@ -179,7 +179,7 @@ cp = getCPValue(arcpy.GetParameterAsText(2))
 
 # Geology polygon layer
 polyLayer = arcpy.GetParameterAsText(3)
-#polyLayer = arcpy.GetParameter(3)
+polyLayer = arcpy.Describe(polyLayer).featureClass.name
 
 # vertical exaggeration
 ve = arcpy.GetParameterAsText(4)
@@ -217,6 +217,7 @@ try:
     arcpy.env.overwriteOutput = True
     scratchDir = arcpy.env.scratchWorkspace
     arcpy.env.workspace = scratchDir
+    arcpy.AddMessage(scratchDir)
 
     #add an ORIG_FID field to the table that consists of values from the OID
     desc = arcpy.Describe(lineLayer)
@@ -248,6 +249,8 @@ try:
     #flip the surface profile events
     #create an empty container for the features that has no spatial reference
     zmProfiles = outName + '_profiles'
+    arcpy.AddMessage(scratchDir)
+    arcpy.AddMessage(zmProfiles)
     arcpy.CreateFeatureclass_management(scratchDir, zmProfiles, 'POLYLINE', locatedEvents, 'ENABLED', 'ENABLED')
 
     #append the features from locatedEvents (map view) to locatedEvents2 (unknown SR)

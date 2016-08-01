@@ -183,8 +183,8 @@ def boreholeLines():
 lineLayer = arcpy.GetParameterAsText(0)
 
 #might be a path, so we have to get the name of the file
-if os.path.isabs(lineLayer):
-    lineLayer = os.path.splitext(os.path.basename(lineLayer))[0]
+#if os.path.isabs(lineLayer):
+#    lineLayer = str(os.path.splitext(os.path.basename(lineLayer))[0])
 
 #can't figure out how to put this in the validator class ??
 result = arcpy.GetCount_management(lineLayer)
@@ -391,7 +391,7 @@ try:
     	arcpy.SetParameterAsText(17, outLayer)
         
     #some cleanup
-    arcpy.DeleteField_management(lineLayer, 'ORIG_FID')
+    arcpy.DeleteField_management(arcpy.GetParameterAsText(0), 'ORIG_FID')
     
 except:
     tb = sys.exc_info()[2]
@@ -399,5 +399,3 @@ except:
     pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
     arcpy.AddError(pymsg)
     raise SystemError
-        
-        #raise SystemError

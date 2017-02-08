@@ -27,7 +27,7 @@ Click on 'commits'
 Click the '<>' icon to the right of 'Commits on Feb 16, 2015' (or earlier) to browse the repository at the time. Commits newer than that were all made against my install of ArcGIS 10.3
 
 Demo data:
-An ArcGIS 10.3 file geodatabase and mxd are included in \GeologicCrossSectionTbx\demo. All of the different types of data sources necessary to run any of the tools in the toolbox are there. When you first open the MXD, go to File > Map Document Properties, and re-write the path to the Default.gdb. The path to my Default.gdb gets written to the MXD and I am not sure that can be reset at runtime of the python tools. A tutorial will follow.
+An ArcGIS 10.3 file geodatabase and mxd are included in \GeologicCrossSectionTbx\demo. All of the different types of data sources necessary to run any of the tools in the toolbox are there. When you first open the MXD, go to File > Map Document Properties, and re-write the path to the Default.gdb. The path to my Default.gdb gets written to the MXD and I am not sure that can be reset at runtime of the python tools.
 
 Thanks everyone for your interest. Please understand that this has always been a hobby project. It remains buggy and poorly documented.
 

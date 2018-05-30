@@ -51,97 +51,74 @@ def addAndCalc(layer, field, calc):
         if len(arcpy.ListFields(layer, field)) ==0:
             arcpy.AddField_management(layer, field, 'LONG')
         arcpy.CalculateField_management(layer, field, calc)
-
     except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-        arcpy.AddError(pymsg)
+        arcpy.AddError(traceback.format_exc())
         raise SystemError
     finally:
         arcpy.RefreshCatalog
         
-def addZ(ZptLayer):
-    #adds the z value to the table so that it is in the event table when we locate
-    #points along the line route
-	try:
-		arcpy.DeleteField_management(ZptLayers, 'DEM_Z')
-	except:
-		pass
-
-	try:
-		arcpy.AddField_management(ZptLayer, 'DEM_Z', 'DOUBLE')
-		rows = arcpy.UpdateCursor(ZptLayer)
-		for row in rows:
-			# create the geometry object
-			feat = row.Shape
-			pnt = feat.getPart(0)
-			# set the value
-			row.setValue('DEM_Z', pnt.Z)
-			# update the row
-			rows.updateRow(row)
-
-	except:
-		tb = sys.exc_info()[2]
-		tbinfo = traceback.format_tb(tb)[0]
-		pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-		arcpy.AddError(pymsg)
-		raise SystemError
-
 def cartesianToGeographic(angle):
     ctg = -90 - angle
     if ctg < 0:
         ctg = ctg + 360
     return ctg
 
-def obliq(theta1, theta2):
-    try:
-        obl = abs(theta1 - theta2)
-        if obl > 180:
-            obl = obl - 180
-        if obl > 90:
-            obl = 180 - obl
-    except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-        arcpy.AddError(pymsg)
-        raise SystemError         
-    return obl
-
-def angleDiff(facingAngle, angleOfTarget):
-    return (facingAngle - angleOfTarget + 180) % 360 - 180
-
-def plotAzimuth(azi, thetaXS, apparentInclination):
-    thetaXSB = thetaXS + 180
-    if thetaXSB > 360:  thetaXSB = thetaXSB - 360
+def obliq(b1, b2):
+    return 180 - abs(abs(b1 - b2) - 180)
     
-    #find the absolute angle between the bearing of the cross section
-    #and the azimuth of the structural measurement
-    #if it is within 90 degrees of the direction of the xs, that should plot
-    #as a tick mark dipping to the right of the panel, if not, to the left.
-    forwardAngle = abs(angleDiff(azi, thetaXS))
-    backwardAngle = abs(angleDiff(azi, thetaXSB))
+def bearing_sum(b1, b2):
+    '''given two bearings between 0 and 360, find the bearing of the sum,
+    which may be more than 360'''
+    s = (b1 + b2 + 360) % 360
+    if s == 0:
+        return 360
+    else:
+        return s
     
-    if forwardAngle < 90:
-        return apparentInclination + 90
-    elif backwardAngle < 90:
-        return 270 - apparentInclination   
-    else: 
-        return 270
-
-def apparentPlunge(azi, inc, thetaXS):
+def symbol_rotation(inclination_direction, local_xs_azi, app_inc_VE):
+    '''If the bearing of the cross section was 90, it would be easy to find out
+    if the dip direction was + or - 90, that is, dipping in the direction of the
+    bearing or dipping the other direction. So, rotate the coordinate system by
+    the amount necessary to bring the xs bearing to 90, and then compare the dip
+    direction'''
+    #rotation amount
+    delta_a = 90 - local_xs_azi
+    #if positive, it's a cw rotation of the axis
+    if delta_a > 0:
+        rotate_inc = inclination_direction + delta_a
+        #bearings in the fourth quadrant (geographic) will move to the first;
+        #they will be more than 360, so reduce.
+        if rotate_inc > 360:
+            rotate_inc = rotate_inc - 360 
+    else:
+    #if negative it's a ccw rotation
+        rotate_inc = inclination_direction - abs(delta_a)
+        
+    #for arithmetic rotation of symbol in map view.
+    if rotate_inc in [0, 180]:
+        return 90
+    elif 0 < rotate_inc < 180:
+        return 360 - app_inc_VE
+    else:
+        return 180 + app_inc_VE
+    
+def apparentDip(azi, inc, thetaXS):
     try:
-        obliquity = obliq(azi, thetaXS)
-        appInc = math.degrees(math.atan(float(ve) * math.tan(math.radians(inc)) * math.cos(math.radians(obliquity))))
-        return appInc, obliquity
+        alpha = obliq(azi, thetaXS)
+        complement =  180 - alpha
+        if alpha < complement:
+            obliquity = alpha
+        else:
+            obliquity = complement
+            
+        #appIncVE for debugging
+        appIncVE = math.degrees(math.atan(math.tan(math.radians(inc)) * math.sin(math.radians(obliquity))))
+        appInc = math.degrees(math.atan(ve * math.tan(math.radians(inc)) * math.sin(math.radians(obliquity))))
+        return obliquity, appInc, appIncVE
     except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-        arcpy.AddError(pymsg)
-        raise SystemError        
-
+        arcpy.AddError(traceback.format_exc())
+        raise SystemError  
+    
 
 # PARAMETERS
 # ***************************************************************
@@ -171,16 +148,16 @@ cp = getCPValue(arcpy.GetParameterAsText(2))
 ptLayer = arcpy.GetParameterAsText(3)
 
 # collar Z field
-ptZField = arcpy.GetParameterAsText(4)
+ptz_field = arcpy.GetParameterAsText(4)
 
 #strike field
-strikeField = arcpy.GetParameterAsText(5)
+strike_field = arcpy.GetParameterAsText(5)
 
 #dip field
-dipField = arcpy.GetParameterAsText(6)
+dip_field = arcpy.GetParameterAsText(6)
 
 #update the orientation data boolean if these fields are filled in
-if not strikeField == "" and not dipField == "": isOrientationData = True
+if not strike_field == '' and not dip_field == '': isOrientationData = True
 
 #buffer/search distance
 buff = arcpy.GetParameterAsText(7)
@@ -199,7 +176,7 @@ append = arcpy.GetParameterAsText(10)
 appendFC = arcpy.GetParameterAsText(11)
 
 if append == 'true':
-	outName = os.path.splitext(os.path.basename(appendFC))[0]
+    outName = os.path.splitext(os.path.basename(appendFC))[0]
     
 #data frame name
 dfName = arcpy.GetParameterAsText(12)
@@ -211,8 +188,8 @@ try:
     checkExtensions()
     
     #check for an output
-    if outName == ""  and appendFC == "":
-        arcpy.AddMessage("Select a new feature class or one to which new features will be appended")
+    if outName == ''  and appendFC == '':
+        arcpy.AddMessage('Select a new feature class or one to which new features will be appended')
         raise SystemError
     
     #environment variables
@@ -227,63 +204,44 @@ try:
     idField = desc.OIDFieldName
     addAndCalc(lineLayer, 'ORIG_FID', '[' + idField + ']')
     
-    #interpolate the line to add z values
-    zLine = lineLyrName + '_z'
-    arcpy.AddMessage('Getting elevation values for the cross-section in ' + lineLyrName)
-    arcpy.InterpolateShape_3d(dem, lineLayer, zLine)
-    arcpy.AddMessage('   ' + zLine + ' written to ' + arcpy.env.scratchWorkspace)
-    
     #measure it and turn it into a route
-    zmLine = lineLyrName + '_zm'
-    if arcpy.Exists(zmLine): arcpy.Delete_management(zmLine)
-    arcpy.AddMessage('Measuring the length of ' + zLine)
-    arcpy.CreateRoutes_lr(zLine, 'ORIG_FID', zmLine, 'LENGTH', '#', '#', cp)
-    arcpy.AddMessage('   ' + zmLine + ' written to ' + arcpy.env.scratchWorkspace)
+    mLine = lineLyrName + '_m'
+    if arcpy.Exists(mLine): arcpy.Delete_management(mLine)
+    arcpy.AddMessage('Measuring the length of cross-section line')
+    arcpy.CreateRoutes_lr(lineLayer, 'ORIG_FID', mLine, 'LENGTH', '#', '#', cp)
+    arcpy.AddMessage('{} written to {}'.format(mLine, scratchDir))
     
     #select points according to the section distance
-    arcpy.SelectLayerByLocation_management(ptLayer, 'WITHIN_A_DISTANCE', zmLine, buff)
-    zPts = outName + '_z'
+    arcpy.SelectLayerByLocation_management(ptLayer, 'WITHIN_A_DISTANCE', mLine, buff)
+    points_near_line = os.path.join(scratchDir, outName + '_sel')
+    #copy to a new feature classe
+    arcpy.CopyFeatures_management(ptLayer, points_near_line)
+    #clear the selection
+    arcpy.SelectLayerByAttribute_management(ptLayer, 'CLEAR_SELECTION')
     
     #figure out where the point elevation is coming from: a user specified field or to be
     #calculated by interpolation from the DEM and stored in 'zDEM'
-    if not ptZField =='':
-        arcpy.AddMessage('Using elevations stored in the field ' + ptZField)
+    if not ptz_field =='':
+        arcpy.AddMessage('Using elevations stored in the field {}'.format(ptz_field))
         #if the elevation values are in the table, copy the selection to an
         #output fc
-    	zField = ptZField
-    	arcpy.CopyFeatures_management(ptLayer, zPts)
+        z_field = ptz_field
     else:
-    	#otherwise, interpolate Z values for the points
-    	arcpy.InterpolateShape_3d(dem, ptLayer, zPts)
-    
-    	#add DEM Z values to zPts attribute table
-        #might already be there so we'll try to add it
-    	try:
-    		arcpy.AddField_management(zPts, 'zDEM', 'FLOAT')
-    	except:
-    		pass
-        #and calc in the geometry x
-        try:
-            arcpy.CalculateField_management(zPts, 'zDEM', '!SHAPE.FIRSTPOINT.Z!', 'PYTHON_9.3')
-        except:
-            #if the elevation cannot be determined for some reason, calc 0
-            arcpy.CalculateField_management(zPts, 'zDEM', -999, 'PYTHON_9.3')
-        
-    	#'DEM_Z' becomes the collar elevation field
-    	zField = 'zDEM'
-        
-        #clear the selection
-        arcpy.SelectLayerByAttribute_management(ptLayer, "CLEAR_SELECTION")
-     
+        arcpy.AddMessage('Adding elevations from {}'.format(dem))
+        #otherwise, add Z values for the points from the DEM surface
+        #arcpy.InterpolateShape_3d(dem, ptLayer, points_near_line)
+        arcpy.AddSurfaceInformation_3d(points_near_line, dem, 'Z')
+        z_field = 'Z'
+ 
     #add ORIG_ID for deleting identical events and for joining attributes later
-    addAndCalc(zPts, 'ORIG_PTID', '[OBJECTID]')
+    addAndCalc(points_near_line, 'ORIG_PTID', '[OBJECTID]')
     
-    # locate points points along the cross-section
+    # locate points along the cross-section
     eventTable = outName + '_ptEvents'
     rProps = 'rkey POINT RouteM'
-    arcpy.AddMessage('Locating ' + zPts + ' on ' + zmLine)
-    arcpy.LocateFeaturesAlongRoutes_lr(zPts, zmLine, 'ORIG_FID', buff, eventTable, rProps, '#', 'DISTANCE')
-    arcpy.AddMessage('   ' + eventTable + ' written to ' + arcpy.env.scratchWorkspace)
+    arcpy.AddMessage('Locating {} on {}'.format(points_near_line, mLine))
+    arcpy.LocateFeaturesAlongRoutes_lr(points_near_line, mLine, 'ORIG_FID', buff, eventTable, rProps, '#', 'DISTANCE')
+    arcpy.AddMessage('   {} written to {}'.format(eventTable, scratchDir))
 
     #remove duplicate records that result from what appears to be
     #an unresolved bug in the Locate Features Along Routes tool
@@ -294,28 +252,38 @@ try:
     except:
         pass
 
-    #place points as events on the cross section line
+    #place points as events on the measured cross section line
+    #TANGENT location angle is in cartesian coordinate system,
+    #0 is to the right, not north.
     eventLyr = '_lyr'
     rProps = 'rkey POINT RouteM'
-    arcpy.MakeRouteEventLayer_lr(zmLine, 'ORIG_FID', eventTable, rProps, eventLyr, '#', 'ERROR_FIELD', 'ANGLE_FIELD', 'TANGENT')
+    arcpy.MakeRouteEventLayer_lr(mLine, 'ORIG_FID', eventTable, rProps, eventLyr, '#', 'ERROR_FIELD', 'ANGLE_FIELD', 'TANGENT')
     eventPts = outName + '_events'
     arcpy.CopyFeatures_management(eventLyr, eventPts)
-    arcpy.AddMessage('   ' + eventPts + ' feature layer written to  '+ arcpy.env.scratchWorkspace)
+    arcpy.AddMessage('   {} feature layer written to {}'.format(eventPts, scratchDir))
     
-    # add DistanceFromSection and LocalXsAzimuth fields
+    # add DistanceFromSection
     arcpy.AddField_management(eventPts,'DistanceFromSection','FLOAT')
-    arcpy.AddField_management(eventPts,'LocalCSAzimuth','FLOAT')
     
+    #in the case where isOrientationData is false, we can't call orientation related
+    #fields or the cursor blows up
+    fldList = ['OBJECTID', 'SHAPE@M', z_field, 'SHAPE@XY', 'LOC_ANGLE', 'DISTANCE', 'DistanceFromSection' ]
+
     #check for whether these are structural data
-    if not strikeField == '':
+    if not strike_field == '':
         isOrientationData = True
-        arcpy.AddField_management(eventPts,'ApparentInclination','FLOAT')
+        arcpy.AddMessage('is Orientation Data') 
+        arcpy.AddField_management(eventPts,'LocalXSAzimuth','FLOAT')
         arcpy.AddField_management(eventPts,'Obliquity','FLOAT')
-        arcpy.AddField_management(eventPts,'PlotAzimuth','FLOAT')
+        arcpy.AddField_management(eventPts,'ApparentInclination','FLOAT')
+        arcpy.AddField_management(eventPts,'ApparentIncVE','FLOAT')
+        arcpy.AddField_management(eventPts,'SymbolRotation','FLOAT')
+        fldList.extend((strike_field, dip_field, 'LocalXSAzimuth', 'Obliquity', 
+                                     'ApparentInclination', 'ApparentIncVE', 'SymbolRotation'))
     else:
         isOrientationData = False       
     
-    #open an data access update-cursor, edit geometries, and calculate attributes
+    #open a data access update-cursor, edit geometries, and calculate attributes
     #discovered during development: for some reason, when a few structural points are
     #directly on top of each other (co-located) instead of being spread out along the
     #cross-section line, the updateRow function takes a very long time. 
@@ -323,59 +291,60 @@ try:
     #same point. This script took over 3 minutes to complete. When the 17 points 
     #were spread roughly equally along the cross-section line, it took 17 seconds
     #Maybe something to do with the spatial index?
-    arcpy.AddMessage('Calculating shapes and attributes from ' + eventPts)
-    
-    #in the case where isOrientationData is false, we can't call orientation related
-    #fields or the cursor blows up
-    if isOrientationData:
-        arcpy.AddMessage("is Orientation Data") 
-        fldList = ["OBJECTID", "SHAPE@M", zField, "SHAPE@XY", "LOC_ANGLE", "LocalCSAzimuth", 
-                                     "DistanceFromSection", "Distance", strikeField, dipField,"Obliquity", 
-                                     "ApparentInclination", "PlotAzimuth"]
-    else:
-        arcpy.AddMessage("is not Orientation Data")
-        fldList = ["OBJECTID", "SHAPE@M", zField, "SHAPE@XY", "LOC_ANGLE", "LocalCSAzimuth", 
-                                     "DistanceFromSection", "Distance"]
-                               
+    arcpy.AddMessage('Calculating shapes and attributes from {}'.format(eventPts))
     rows = arcpy.da.UpdateCursor(eventPts, fldList)
     for row in rows:
-        arcpy.AddMessage('OBJECTID ' + str(row[0])) 
+        arcpy.AddMessage('OBJECTID: {}'.format(str(row[0])))
         #swap M,Z for X,Y
         try:
             #M for X
             x = row[1]
+            #Z for Y
             if row[2] == None:
                 y = -999
-                arcpy.AddMessage('    OBJECTID '+ str(row[0]) +' has no elevation value')
+                arcpy.AddMessage('    OBJECTID {} has no elevation value'
+                    .format(str(row[0])))
+                arcpy.AddMessage('        Maybe it does not lie over the DEM?')
                 arcpy.AddMessage('        calculating a value of -999')
             else:
-                y = row[2] * float(ve)
+                y = row[2] * ve
+            #write geometry through SHAPE@XY
             row[3] = [x, y]
+
         except:
-            arcpy.AddMessage('    Failed to make shape: OBJECTID = '+str(row.OBJECTID)+', M = '+str(row[1]) +', Z = '+str(row[2]))
+            arcpy.AddMessage('    Failed to make shape: OBJECTID {}, M = {}, Z = {}'
+                .format(str(row[0]), str(row[1]), str(row[2])))
             ## need to do something to flag rows that failed?
             #   convert from cartesian  to geographic angle
-        csAzi = cartesianToGeographic(row[4])   #LOC_ANGLE
-        row[5] = csAzi                          #LocalCSAzimuth
-        row[6] = row[7]                         #DistanceFromSection = Distance
-        
+
+        row[6] = row[5]            #DistanceFromSection = Distance  
         #Ralph's code allows for the mixing of strike/dip and lineation/plunge measurements.
         #He can do this because the 'structural type' field in the geodatabase
         #is controlled by a domain, so he can hard-code the parsing of the orientation types and
         #run them through different functions row by row. 
-        #To avoid forcing the use of a domain or running the tool multiple times based on
-        #user-made selection sets of the orientation data, this code will just require
-        #that all orientation data are in lineation/plunge or azimuth/dip format
+        #apparent dip calculation is different for planar measurements than for axial - don't know how to fix this
         #strike will have to be converted to dip-direction beforehand
         #   use this field calculation
         #   !strike! + 90 if ((!strike! + 90) < 360) else (!strike! + 90) - 360
         if isOrientationData == True:
-            appInc, oblique = apparentPlunge(row[8], row[9], csAzi)
-            plotAzi = plotAzimuth(row[8], csAzi, appInc)
+            local_azimuth = cartesianToGeographic(row[4])   #LOC_ANGLE (tangent)
+            row[9] = local_azimuth                          #Local azimuth
+            oblique, appInc, appIncVE = apparentDip(row[7], row[8], local_azimuth)
             row[10] = round(oblique, 2)   #Obliquity
             row[11] = round(appInc, 2)    #ApparentInclination
-            row[12] = round(plotAzi, 2)   #PlotAzimuth
+            row[12] = round(appIncVE,2)   #exaggerated apparent inclination
+            
+            inclination_direction = bearing_sum(row[7], 90)
+            plotAzi = symbol_rotation(inclination_direction, local_azimuth, appInc)
+
+            row[13] = round(plotAzi, 2)   #SymoblRotation
+            
         rows.updateRow(row)
+        
+    #clear the spatial reference of the final feature class
+    unknown = arcpy.SpatialReference()
+    unknown.loadFromString(u'{B286C06B-0879-11D2-AACA-00C04FA33C20};-450359962737.05 -450359962737.05 10000;#;#;0.001;#;#;IsHighPrecision')
+    arcpy.DefineProjection_management(eventPts, unknown)
     
     #some cleanup
     for fld in 'DISTANCE', 'LOC_ANGLE', 'ORIG_FID':
@@ -400,16 +369,16 @@ try:
     #layer will not be added unless Geoprocessing > Geoprocessing Options >
     #   'Add results of geoprocessing operations to the display' is checked
     if not dfName == '' and not dfName == 'ArcMap only':
-    	mxd = arcpy.mapping.MapDocument('Current')
-    	df = arcpy.mapping.ListDataFrames(mxd, dfName)[0]
-    	mxd.activeView = df
+        mxd = arcpy.mapping.MapDocument('Current')
+        df = arcpy.mapping.ListDataFrames(mxd, dfName)[0]
+        mxd.activeView = df
         
     #next line is irrelevant if the output symbology property doesn't work
-   	#arcpy.SetParameterAsText(13, outLayer)
+    #arcpy.SetParameterAsText(13, outLayer)
     
     #setting the symbology property of the output parameter is not working, thus...
     #get the current map document
-    mxd = arcpy.mapping.MapDocument("Current")
+    mxd = arcpy.mapping.MapDocument('Current')
     #make a map layer from the output feature class
     addLayer = arcpy.mapping.Layer(outLayer)
     #add that layer to the map and currently active data frame
@@ -421,15 +390,12 @@ try:
     thisFile = __file__  #I love this! I never knew it was so easy to get the 
     #path of the current script!
     dirname = os.path.dirname
-    paParent = (dirname(dirname(thisFile)))
-    symLyr = os.path.join(paParent, 'docs', 'structureTicks.lyr')
+    path_parent = (dirname(dirname(thisFile)))
+    symLyr = os.path.join(path_parent, 'docs', 'structureTicks.lyr')
     arcpy.ApplySymbologyFromLayer_management(stxLyr, symLyr)
 
 except:
-    tb = sys.exc_info()[2]
-    tbinfo = traceback.format_tb(tb)[0]
-    pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-    arcpy.AddError(pymsg)
+    arcpy.AddError(traceback.format_exc())
     raise SystemError
     
     

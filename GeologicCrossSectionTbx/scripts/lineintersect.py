@@ -10,6 +10,8 @@ Upgrades to ArcGIS 10 started 7/13/11
 
 Upgrades to ArcGIS 10.1 started 6/5/13
 primarily removing xsecdefs
+
+Edits 5/30/18
 '''
 
 # Import modules
@@ -40,9 +42,9 @@ def getCPValue(quadrant):
     return cpDict[quadrant]
 
 def addAndCalc(layer, field, calc):
-    #adds a field to a table (layer) of name (field), and calcs a value
-    #created as means to add an rkey value to line layers that consist
-    #of OID values
+    '''adds a field to a table (layer) of name (field), and calcs a value
+    created as means to add an rkey value to line layers that consist
+    of OID values'''
     try:
         #add a key field if it doesn't already exist
         if len(arcpy.ListFields(layer, field)) ==0:
@@ -54,44 +56,14 @@ def addAndCalc(layer, field, calc):
         arcpy.CalculateField_management(layer, field, calc)
 
     except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-        arcpy.AddError(pymsg)
+        arcpy.AddError(traceback.format_exc())
         raise SystemError
     finally:
         arcpy.RefreshCatalog
 
-def addZ(ZptLayer):
-    #adds the z value to the table so that it is in the event table when we locate
-    #points along the line route
-	try:
-		arcpy.DeleteField_management(ZptLayers, 'DEM_Z')
-	except:
-		pass
-
-	try:
-		arcpy.AddField_management(ZptLayer, 'DEM_Z', 'DOUBLE')
-		rows = arcpy.UpdateCursor(ZptLayer)
-		for row in rows:
-			# create the geometry object
-			feat = row.Shape
-			pnt = feat.getPart(0)
-			# set the value
-			row.setValue('DEM_Z', pnt.Z)
-			# update the row
-			rows.updateRow(row)
-
-	except:
-		tb = sys.exc_info()[2]
-		tbinfo = traceback.format_tb(tb)[0]
-		pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-		arcpy.AddError(pymsg)
-		raise SystemError
-
 def xsecLines(outFC, ZinterPts, eventTable, ZField):
-    #shows the intersections between the cross-section line and other lines
-    #in map view as lines in cross-section view
+    '''shows the intersections between the cross-section line and other lines
+    in map view as lines in cross-section view'''
     try:
         # create an empty output featureclass with the fields of the event table
     	arcpy.CreateFeatureclass_management(scratchDir, outFC, 'POLYLINE', ZinterPts, 'ENABLED', 'ENABLED')
@@ -111,7 +83,7 @@ def xsecLines(outFC, ZinterPts, eventTable, ZField):
 
         #get a list of fields in the template table that does not include OBJECTID or FID or SHAPE
         #anything else? add it to xf! ("excluded fields")
-        xf = ('shape', 'objectid', 'fid', 'shape_length')
+        xf = ['shape', 'objectid', 'fid', 'shape_length']
         lf = arcpy.ListFields(ZinterPts)
         names = []
         for f in lf:
@@ -154,15 +126,12 @@ def xsecLines(outFC, ZinterPts, eventTable, ZField):
             array.removeAll()
 
     except:
-        tb = sys.exc_info()[2]
-        tbinfo = traceback.format_tb(tb)[0]
-        pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-        arcpy.AddError(pymsg)
+        arcpy.AddError(traceback.format_exc())
         raise SystemError
 
 def xsecPoints(outFC, Zpts, eventTable, ZField):
-    #shows the intersections between the cross-section line and other lines
-    #in map view as points in cross-section view
+    '''shows the intersections between the cross-section line and other lines
+    in map view as points in cross-section view'''
     try:
         # create the output featureclass
         arcpy.CreateFeatureclass_management(scratchDir, outFC, 'POINT', Zpts, 'ENABLED', 'ENABLED')
@@ -209,16 +178,13 @@ def xsecPoints(outFC, Zpts, eventTable, ZField):
             cur.insertRow(row)
 
     except:
-		tb = sys.exc_info()[2]
-		tbinfo = traceback.format_tb(tb)[0]
-		pymsg = tbinfo + '\n' + str(sys.exc_type)+ ': ' + str(sys.exc_value)
-		arcpy.AddError(pymsg)
+        arcpy.AddError(traceback.format_exc())
 		raise SystemError
 
 def transferAtts(inFC, joinTable, parentKey, childKey, outName):
+    '''transfers attributes from a table to a fc: OIDs must match!
+    get the attributes through a join which only works on a feature layer'''
     try:
-        #transfers attributes from a table to a fc: OIDs must match!
-        #get the attributes through a join which only works on a feature layer
         lName = 'lay'
         layer = arcpy.MakeFeatureLayer_management(inFC, lName)[0]
 
@@ -306,7 +272,7 @@ dfName = arcpy.GetParameterAsText(9)
 #BEGIN
 #*******************************************************
 try:
-    #do we have a place to put this?
+    #is there a better place to put this?
     if outFC == "" and appendFC == "":
         arcpy.AddError("Provide the name of a new feature class or one to which the features will be appended.")
         raise SystemError
@@ -332,24 +298,13 @@ try:
     idField = desc.OIDFieldName
     addAndCalc(xsecLayer, 'ORIG_FID', '[' + idField + ']')
 
-    #interpolate the line to add z values
-    #despite the documentation for InterpolateShape, the function may not deal
-    #appropriately with spatial references that differ between the features and the surface
-    #particularly if one is UTM and one is state plane in feet
-    #the user may have to re-project the surface to the same as the features
-    #should this be a fatal error with a warning?
-    zLine = xsecName + '_z'
-    arcpy.AddMessage('Getting elevation values for cross-section line in ' + xsecLayer)
-    arcpy.InterpolateShape_3d(dem, xsecLayer, zLine)
-    arcpy.AddMessage('    ' + zLine + ' written to ' + scratchDir)
+    #measure the cross section line
+    mLine = xsecName + '_m'
+    arcpy.AddMessage('Measuring the length of the cross section')
+    arcpy.CreateRoutes_lr(xsecLayer, 'ORIG_FID', mLine, 'LENGTH', '#', '#', cp)
+    arcpy.AddMessage('    ' + mLine + ' written to ' + scratchDir)
 
-    #measure the lines
-    zmLine = xsecName + '_zm'
-    arcpy.AddMessage('Measuring the length of the line in ' + zLine)
-    arcpy.CreateRoutes_lr(zLine, 'ORIG_FID', zmLine, 'LENGTH', '#', '#', cp)
-    arcpy.AddMessage('    ' + zmLine + ' written to ' + scratchDir)
-
-    #intersect with lines layer
+    #intersect the cross section with the lines layer
     #creates a table with only the original FIDs of the input features.
     #FID field is named FID_<fcname> so we can find it later to transfer attributes
     #otherwise, we get a ton of fields, which may be redundant if the same feature class
@@ -359,45 +314,39 @@ try:
     #all other cross-sections
     intersectPts = outName + '_interPts'
     inList = linesLayer + ';' + xsecLayer
-    arcpy.AddMessage('Intersecting ' + linesLayer + " with the line of cross-section")
+    arcpy.AddMessage('Intersecting lines in {} with the line of cross-section'.
+        format(linesLayer))
     try:
         arcpy.Intersect_analysis(inList, intersectPts, 'ONLY_FID', '#', 'point')
     except:
-        arcpy.AddWarning("Intersect process failed!")
-        arcpy.AddWarning("You may need to permanently project all layers")
-        arcpy.AddWarning("to the same spatial reference.")
-    arcpy.AddMessage('    ' + intersectPts + ' written to ' + scratchDir)
+        arcpy.AddWarning('Intersect process failed!')
+        arcpy.AddWarning('You may need to permanently project all layers')
+        arcpy.AddWarning('to the same spatial reference.')
+    arcpy.AddMessage('    {} written to {}'.format(intersectPts, scratchDir))
+    
+    #f-ing intersect analysis created multipoints, on which you can't call
+    #AddSurfaceInformation
+    explode_pts = intersectPts + '_exp'
+    arcpy.MultipartToSinglepart_management(intersectPts, explode_pts)
 
     #get elevations for the intersection locations
-    zInterPts = outName + '_zInterPts'
-    arcpy.AddMessage('Getting elevations for points in ' + intersectPts)
-    arcpy.InterpolateShape_3d(dem, intersectPts, zInterPts)
-    arcpy.AddMessage('    ' + zInterPts + ' written to ' + scratchDir)
-    
-    #Add DEM Z values to ZinterPts attribute table
-    #addZ(zInterPts)
-    try:
-    	arcpy.AddField_management(zInterPts, 'zDEM', 'DOUBLE')
-    except:
-    	pass
-    
-    #and calc in the geometry x
-    arcpy.CalculateField_management(zInterPts, 'zDEM', '!SHAPE.FIRSTPOINT.Z!', 'PYTHON_9.3')
+    arcpy.AddMessage('Adding elevations from {}'.format(dem))
+    arcpy.AddSurfaceInformation_3d(explode_pts, dem, 'Z')
   
-    #locate intersection points along cross-section
+    #locate intersection points on measured cross-section
     eventTable = outName + '_interEvents'
     rProps = 'rkey POINT RouteM'
-    #createEventTable(zInterPts, zmLine, 'ORIG_FID', '10', eventTable, rProps)
-    arcpy.AddMessage('Locating lines in ' + linesLayer + ' on ' + zmLine)
-    arcpy.LocateFeaturesAlongRoutes_lr(zInterPts, zmLine, 'ORIG_FID', '10', eventTable, rProps, 'FIRST', 'NO_DISTANCE', 'NO_ZERO')
-    arcpy.AddMessage('    ' + eventTable + 'written to ' + scratchDir)
+    arcpy.AddMessage('Locating lines in {} on {}'.format(linesLayer, mLine))
+    arcpy.LocateFeaturesAlongRoutes_lr(explode_pts, mLine, 'ORIG_FID', '10', 
+        eventTable, rProps, 'FIRST', 'NO_DISTANCE', 'NO_ZERO')
+    arcpy.AddMessage('    {} written to {}'.format(eventTable, scratchDir))
     
     if outShape == 'lines':
     	xInterFeats = outName + '_xsecLines'
-    	xsecLines(xInterFeats, zInterPts, eventTable, 'zDEM')
+    	xsecLines(xInterFeats, explode_pts, eventTable, 'Z')
     else:
     	xInterFeats = outName + '_xsecPts'
-    	xsecPoints(xInterFeats, zInterPts, eventTable, 'zDEM')
+    	xsecPoints(xInterFeats, explode_pts, eventTable, 'Z')
     
     #I think we're done with 'ORIG_FID' here, nuke it
     arcpy.DeleteField_management(xsecLayer, 'ORIG_FID')
@@ -407,7 +356,6 @@ try:
     descLines = arcpy.Describe(linesLayer)
     linesIDF = descLines.OIDFieldName
     trueName = descLines.name #need the name of the table in the workspace, not the ArcMap layer name
-    #an output name
     xInterFeatsAtts = xInterFeats + '_atts'
     #transfer the attributes
     transferAtts(xInterFeats, linesLayer, 'FID_' + trueName , linesIDF, xInterFeatsAtts)

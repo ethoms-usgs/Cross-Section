@@ -74,30 +74,22 @@ def bearing_sum(b1, b2):
         return 360
     else:
         return s
-    
+
+def azimuthDifference(a, b):
+    # a, b are two azimuths in clockwise geographic notation
+    # azDiff is in range -180..180
+    # if azDiff < 0, a is counterclockwise of b
+    # if azDiff > 0, a is clockwise of b
+    azDiff = a - b
+    if azDiff > 180:
+        azDiff = azDiff - 360
+    if azDiff < -180:
+        azDiff = azDiff + 360
+    return azDiff
+
 def symbol_rotation(inclination_direction, local_xs_azi, app_inc_VE):
-    '''If the bearing of the cross section was 90, it would be easy to find out
-    if the dip direction was + or - 90, that is, dipping in the direction of the
-    bearing or dipping the other direction. So, rotate the coordinate system by
-    the amount necessary to bring the xs bearing to 90, and then compare the dip
-    direction'''
-    #rotation amount
-    delta_a = 90 - local_xs_azi
-    #if positive, it's a cw rotation of the axis
-    if delta_a > 0:
-        rotate_inc = inclination_direction + delta_a
-        #bearings in the fourth quadrant (geographic) will move to the first;
-        #they will be more than 360, so reduce.
-        if rotate_inc > 360:
-            rotate_inc = rotate_inc - 360 
-    else:
-    #if negative it's a ccw rotation
-        rotate_inc = inclination_direction - abs(delta_a)
-        
-    #for arithmetic rotation of symbol in map view.
-    if rotate_inc in [0, 180]:
-        return 90
-    elif 0 < rotate_inc < 180:
+    azDiff = azimuthDifference(local_xs_azi, inclination_direction)
+    if azDiff >= -90 and azDiff <= 90:
         return 360 - app_inc_VE
     else:
         return 180 + app_inc_VE
@@ -112,8 +104,13 @@ def apparentDip(azi, inc, thetaXS):
             obliquity = complement
             
         #appIncVE for debugging
-        appIncVE = math.degrees(math.atan(math.tan(math.radians(inc)) * math.sin(math.radians(obliquity))))
-        appInc = math.degrees(math.atan(ve * math.tan(math.radians(inc)) * math.sin(math.radians(obliquity))))
+        #APPARENT PLUNGE - change 'math.sin' of last term to math.cos, eg
+        #appInc = math.degrees(math.atan(vertEx * math.tan(math.radians(inc)) * 
+            #math.cos(math.radians(obliquity)))
+        appIncVE = math.degrees(math.atan(math.tan(math.radians(inc)) * 
+            math.sin(math.radians(obliquity))))
+        appInc = math.degrees(math.atan(ve * math.tan(math.radians(inc)) * 
+            math.sin(math.radians(obliquity))))
         return obliquity, appInc, appIncVE
     except:
         arcpy.AddError(traceback.format_exc())
@@ -214,9 +211,7 @@ try:
     #select points according to the section distance
     arcpy.SelectLayerByLocation_management(ptLayer, 'WITHIN_A_DISTANCE', mLine, buff)
     points_near_line = os.path.join(scratchDir, outName + '_sel')
-    #copy to a new feature classe
     arcpy.CopyFeatures_management(ptLayer, points_near_line)
-    #clear the selection
     arcpy.SelectLayerByAttribute_management(ptLayer, 'CLEAR_SELECTION')
     
     #figure out where the point elevation is coming from: a user specified field or to be
@@ -228,8 +223,6 @@ try:
         z_field = ptz_field
     else:
         arcpy.AddMessage('Adding elevations from {}'.format(dem))
-        #otherwise, add Z values for the points from the DEM surface
-        #arcpy.InterpolateShape_3d(dem, ptLayer, points_near_line)
         arcpy.AddSurfaceInformation_3d(points_near_line, dem, 'Z')
         z_field = 'Z'
  
@@ -240,7 +233,8 @@ try:
     eventTable = outName + '_ptEvents'
     rProps = 'rkey POINT RouteM'
     arcpy.AddMessage('Locating {} on {}'.format(points_near_line, mLine))
-    arcpy.LocateFeaturesAlongRoutes_lr(points_near_line, mLine, 'ORIG_FID', buff, eventTable, rProps, '#', 'DISTANCE')
+    arcpy.LocateFeaturesAlongRoutes_lr(points_near_line, mLine, 'ORIG_FID', buff, 
+        eventTable, rProps, '#', 'DISTANCE')
     arcpy.AddMessage('   {} written to {}'.format(eventTable, scratchDir))
 
     #remove duplicate records that result from what appears to be
@@ -257,7 +251,8 @@ try:
     #0 is to the right, not north.
     eventLyr = '_lyr'
     rProps = 'rkey POINT RouteM'
-    arcpy.MakeRouteEventLayer_lr(mLine, 'ORIG_FID', eventTable, rProps, eventLyr, '#', 'ERROR_FIELD', 'ANGLE_FIELD', 'TANGENT')
+    arcpy.MakeRouteEventLayer_lr(mLine, 'ORIG_FID', eventTable, rProps, eventLyr, 
+        '#', 'ERROR_FIELD', 'ANGLE_FIELD', 'TANGENT')
     eventPts = outName + '_events'
     arcpy.CopyFeatures_management(eventLyr, eventPts)
     arcpy.AddMessage('   {} feature layer written to {}'.format(eventPts, scratchDir))
@@ -267,19 +262,18 @@ try:
     
     #in the case where isOrientationData is false, we can't call orientation related
     #fields or the cursor blows up
-    fldList = ['OBJECTID', 'SHAPE@M', z_field, 'SHAPE@XY', 'LOC_ANGLE', 'DISTANCE', 'DistanceFromSection' ]
+    fldList = ['OBJECTID', 'SHAPE@M', z_field, 'SHAPE@XY', 'LOC_ANGLE', 
+         'DISTANCE', 'DistanceFromSection' ]
 
     #check for whether these are structural data
     if not strike_field == '':
         isOrientationData = True
-        arcpy.AddMessage('is Orientation Data') 
-        arcpy.AddField_management(eventPts,'LocalXSAzimuth','FLOAT')
-        arcpy.AddField_management(eventPts,'Obliquity','FLOAT')
-        arcpy.AddField_management(eventPts,'ApparentInclination','FLOAT')
-        arcpy.AddField_management(eventPts,'ApparentIncVE','FLOAT')
-        arcpy.AddField_management(eventPts,'SymbolRotation','FLOAT')
+        arcpy.AddMessage('is Orientation Data')
+        for foo in ['LocalXSAzimuth', 'Obliquity', 'ApparentInclination', 
+            'ApparentIncVE', 'SymbolRotation']:
+            arcpy.AddField_management(eventPts, foo, 'FLOAT')
         fldList.extend((strike_field, dip_field, 'LocalXSAzimuth', 'Obliquity', 
-                                     'ApparentInclination', 'ApparentIncVE', 'SymbolRotation'))
+                      'ApparentInclination', 'ApparentIncVE', 'SymbolRotation'))
     else:
         isOrientationData = False       
     

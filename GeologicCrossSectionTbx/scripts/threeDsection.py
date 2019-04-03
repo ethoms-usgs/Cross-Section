@@ -98,9 +98,9 @@ def addZ(ZptLayer):
 		raise SystemError
 
 def vertexDictionary(ZMline):
-    #creates a dictionary of the geometry
-    #values of each vertex in an interpolated and measured
-    #line. Also creates a list of just the elevations
+    '''creates a dictionary of the geometry
+    values of each vertex in an interpolated and measured
+    line. Also creates a list of just the elevations'''
     try:
         #create the collection containers
         vDict = {}
@@ -134,10 +134,10 @@ def vertexDictionary(ZMline):
         raise SystemError
     
 def lerpXY(distance, vList, vDict):
-    #lerp, apparently, is a verb meaning 'to perform a linear interpolation'
-    #Use the very handy bisect module to find where the distance (as reported
-    #by the X coordinate in cross section view) would be inserted in the
-    #sorted M values list.
+    '''lerp, apparently, is a verb meaning 'to perform a linear interpolation'
+    Use the very handy bisect module to find where the distance (as reported
+    by the X coordinate in cross section view) would be inserted in the
+    sorted M values list.'''
     #arcpy.AddMessage("{}, {}".format(distance, min(vList)))
     try:
         #if our distance value is smaller than the M value at the beginning
@@ -282,6 +282,7 @@ try:
     #environment variables
     arcpy.env.overwriteOutput = True
     scratchDir = arcpy.env.scratchWorkspace
+    #scratchDir = r"D:\Current\Publications_Reviews\H\Haeussler_Kodiak\Kodiak_SIM\geologic_data"
     arcpy.env.workspace = scratchDir
     
     #add an rkey field to the table that consists of values from the OID
@@ -369,7 +370,8 @@ try:
             scratchFolder = returnParentFolder(scratchDir)
             
             #open a text file to start writing coordinates to
-            xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
+            #xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
+            xyzFile = os.path.join(r"D:\Current\Publications_Reviews\H\Haeussler_Kodiak\Kodiak_SIM\geologic_data", baseName + '_xyz.txt')
             arcpy.AddMessage('Writing XYZ coordinates to %s' % xyzFile)
             outF = open(xyzFile, 'w')
 			

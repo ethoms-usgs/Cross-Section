@@ -179,7 +179,7 @@ def xsecPoints(outFC, Zpts, eventTable, ZField):
 
     except:
         arcpy.AddError(traceback.format_exc())
-		raise SystemError
+	raise SystemError
 
 def transferAtts(inFC, joinTable, parentKey, childKey, outName):
     '''transfers attributes from a table to a fc: OIDs must match!

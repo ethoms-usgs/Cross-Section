@@ -370,8 +370,7 @@ try:
             scratchFolder = returnParentFolder(scratchDir)
             
             #open a text file to start writing coordinates to
-            #xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
-            xyzFile = os.path.join(r"D:\Current\Publications_Reviews\H\Haeussler_Kodiak\Kodiak_SIM\geologic_data", baseName + '_xyz.txt')
+            xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
             arcpy.AddMessage('Writing XYZ coordinates to %s' % xyzFile)
             outF = open(xyzFile, 'w')
 			

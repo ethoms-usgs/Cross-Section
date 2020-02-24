@@ -163,7 +163,9 @@ lineLayer = arcpy.GetParameterAsText(0)
 # if the layer is nested in an group the value returned has a slash in it:
 # GEOLOGY/cross sections
 # but if we evaluate it as a Describe object, we can easily get the name of just the feature class
-lineLayer = arcpy.Describe(lineLayer).featureClass.name
+lineLayer = arcpy.Describe(lineLayer).baseName
+#and replace any whitespace
+lineLayer = lineLayer.replace(" ", "")
 
 #can't figure out how to put this in the validator class ??
 result = arcpy.GetCount_management(lineLayer)

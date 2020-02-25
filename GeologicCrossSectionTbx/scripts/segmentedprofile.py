@@ -160,12 +160,18 @@ def plan2side(zmLines, ve):
 # *******************************************************
 # Cross section(s) layer
 lineLayer = arcpy.GetParameterAsText(0)
-# if the layer is nested in an group the value returned has a slash in it:
-# GEOLOGY/cross sections
-# but if we evaluate it as a Describe object, we can easily get the name of just the feature class
-lineLayer = arcpy.Describe(lineLayer).baseName
-#and replace any whitespace
-lineLayer = lineLayer.replace(" ", "")
+#in a map, the layer might be nested within a group or more than one group
+#for naming intermediate files, we want the last term in the group\group\<etc>\layer string
+#and we want the path to the source file
+if lineLayer.find('\\') > -1:
+    r = lineLayer.split('\\')
+    line_layer_name = r[len(r)-1]
+else:
+    line_layer_name = lineLayer
+    
+d = arcpy.Describe(lineLayer)
+line_layer_path = d.catalogPath
+
 
 #can't figure out how to put this in the validator class ??
 result = arcpy.GetCount_management(lineLayer)
@@ -181,7 +187,15 @@ cp = getCPValue(arcpy.GetParameterAsText(2))
 
 # Geology polygon layer
 polyLayer = arcpy.GetParameterAsText(3)
-polyLayer = arcpy.Describe(polyLayer).featureClass.name
+#polyLayer = arcpy.Describe(polyLayer).featureClass.baseName
+if polyLayer.find('\\') > -1:
+    r = polyLayer.split('\\')
+    poly_layer_name = r[len(r)-1]
+else:
+    poly_layer_name = polyLayer
+    
+d = arcpy.Describe(polyLayer)
+poly_layer_path = d.catalogPath
 
 # vertical exaggeration
 ve = arcpy.GetParameterAsText(4)
@@ -229,17 +243,17 @@ try:
     #it's necessary to interpolate the line so that a new feature is created in
     #the scratch gdb which has a length in the units of the SR of the dem.
     #interpolate the line to add z values
-    zLine = lineLayer + '_z'
+    zLine = line_layer_name + '_z'
     arcpy.AddMessage('Getting elevation values for the cross-section in ' + lineLayer)
     arcpy.InterpolateShape_3d(dem, lineLayer, zLine)
 
     #measure it and turn it into a route
-    zmLine = lineLayer + '_zm'
+    zmLine = line_layer_name + '_zm'
     arcpy.AddMessage('Measuring the length of the line in ' + zLine)
     arcpy.CreateRoutes_lr(zLine, 'ORIG_FID', zmLine, 'LENGTH', '#', '#', cp)
 
     #intersect with geology layer
-    eventTable = polyLayer + '_polyEvents'
+    eventTable = poly_layer_name + '_polyEvents'
     rProps = 'rkey LINE FromM ToM'
     arcpy.AddMessage('Locating ' + polyLayer + ' on ' + zmLine)
     arcpy.LocateFeaturesAlongRoutes_lr(polyLayer, zmLine, 'ORIG_FID', '#', eventTable, rProps, 'FIRST', 'NO_DISTANCE', 'NO_ZERO')

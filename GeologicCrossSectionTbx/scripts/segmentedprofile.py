@@ -187,7 +187,6 @@ cp = getCPValue(arcpy.GetParameterAsText(2))
 
 # Geology polygon layer
 polyLayer = arcpy.GetParameterAsText(3)
-#polyLayer = arcpy.Describe(polyLayer).featureClass.baseName
 if polyLayer.find('\\') > -1:
     r = polyLayer.split('\\')
     poly_layer_name = r[len(r)-1]

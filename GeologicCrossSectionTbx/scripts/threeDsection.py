@@ -237,7 +237,7 @@ def transferAtts(inFC, joinTable, parentKey, childKey, fInfo, outName):
 # *******************************************************
 # Cross section layer, use this as a reference to the feature layer
 xsecLayer = arcpy.GetParameterAsText(0)
-xsecLayer = arcpy.Describe(xsecLayer).featureClass.name
+#xsecLayer = arcpy.Describe(xsecLayer).featureClass.name
 
 #use this as the basename for intermediate files (because lineLayer may 
 #have slashes in the name/path)

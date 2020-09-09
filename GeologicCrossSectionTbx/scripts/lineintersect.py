@@ -228,7 +228,9 @@ xsecLayer = arcpy.GetParameterAsText(0)
 
 #use this as the basename for intermediate files (because lineLayer may 
 #have slashes in the name/path)
-xsecName = arcpy.Describe(xsecLayer).name 
+xsecName = arcpy.Describe(xsecLayer).name
+# and might be a shapefile where the name ends in .shp
+xsecName = os.path.split(xsecName)[0]
 
 #might be a path, so we have to get the name of the file
 if os.path.isabs(xsecLayer):

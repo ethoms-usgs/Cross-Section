@@ -179,7 +179,7 @@ def xsecPoints(outFC, Zpts, eventTable, ZField):
 
     except:
         arcpy.AddError(traceback.format_exc())
-		raise SystemError
+        raise SystemError
 
 def transferAtts(inFC, joinTable, parentKey, childKey, outName):
     '''transfers attributes from a table to a fc: OIDs must match!
@@ -230,7 +230,8 @@ xsecLayer = arcpy.GetParameterAsText(0)
 #have slashes in the name/path)
 xsecName = arcpy.Describe(xsecLayer).name
 # and might be a shapefile where the name ends in .shp
-xsecName = os.path.split(xsecName)[0]
+if xsecName.endswith('.shp'):
+    xsecName = xsecName[:-4]
 
 #might be a path, so we have to get the name of the file
 if os.path.isabs(xsecLayer):
@@ -358,6 +359,10 @@ try:
     descLines = arcpy.Describe(linesLayer)
     linesIDF = descLines.OIDFieldName
     trueName = descLines.name #need the name of the table in the workspace, not the ArcMap layer name
+    #might be a shapefile, get the name without the .shp extension
+    if trueName.endswith('.shp'):
+        trueName = trueName[:-4]
+        
     xInterFeatsAtts = xInterFeats + '_atts'
     #transfer the attributes
     transferAtts(xInterFeats, linesLayer, 'FID_' + trueName , linesIDF, xInterFeatsAtts)

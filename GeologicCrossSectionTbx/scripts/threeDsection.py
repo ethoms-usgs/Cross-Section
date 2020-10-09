@@ -237,7 +237,7 @@ def transferAtts(inFC, joinTable, parentKey, childKey, fInfo, outName):
 # *******************************************************
 # Cross section layer, use this as a reference to the feature layer
 xsecLayer = arcpy.GetParameterAsText(0)
-xsecLayer = arcpy.Describe(xsecLayer).featureClass.name
+#xsecLayer = arcpy.Describe(xsecLayer).featureClass.name
 
 #use this as the basename for intermediate files (because lineLayer may 
 #have slashes in the name/path)
@@ -370,8 +370,7 @@ try:
             scratchFolder = returnParentFolder(scratchDir)
             
             #open a text file to start writing coordinates to
-            #xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
-            xyzFile = os.path.join(r"D:\Current\Publications_Reviews\H\Haeussler_Kodiak\Kodiak_SIM\geologic_data", baseName + '_xyz.txt')
+            xyzFile = os.path.join(scratchFolder, baseName + '_xyz.txt')
             arcpy.AddMessage('Writing XYZ coordinates to %s' % xyzFile)
             outF = open(xyzFile, 'w')
 			
